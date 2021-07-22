@@ -14,6 +14,13 @@ type logger interface {
 	Error(msg string, fields ...map[string]interface{})
 }
 
+// ErrorHandler returns a function that writes and logs the given error.
+func ErrorHandler(log logger) func(context.Context, http.ResponseWriter, error) {
+	return func(ctx context.Context, w http.ResponseWriter, err error) {
+		log.Error(err.Error())
+	}
+}
+
 // ListenGracefully will start a listener on a specified address and blocks
 // until it receives an interrupt or a sigterm, at which point it will start
 // a graceful shutdown and finally return.
