@@ -6,6 +6,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/codeclysm/ctxlog/v2"
+	httpmdlwr "goa.design/goa/v3/http/middleware"
+	goamdlwr "goa.design/goa/v3/middleware"
 )
 
 type logger interface {
@@ -18,6 +22,29 @@ type logger interface {
 func ErrorHandler(log logger) func(context.Context, http.ResponseWriter, error) {
 	return func(ctx context.Context, w http.ResponseWriter, err error) {
 		log.Error(err.Error())
+	}
+}
+
+// RequestID is a wrapper around the goa middleware with the same name,
+// except it also augments the ctxlog with the request id
+func RequestID() func(http.Handler) http.Handler {
+	goaReqID := httpmdlwr.RequestID(
+		httpmdlwr.UseXRequestIDHeaderOption(true),
+		httpmdlwr.XRequestHeaderLimitOption(128),
+	)
+
+	return func(h http.Handler) http.Handler {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
+			reqID := ctx.Value(goamdlwr.RequestIDKey)
+
+			ctx = ctxlog.WithFields(ctx, map[string]interface{}{"reqID": reqID})
+
+			h.ServeHTTP(w, r.WithContext(ctx))
+		})
+
+		return goaReqID(handler)
 	}
 }
 
